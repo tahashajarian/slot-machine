@@ -6,7 +6,7 @@ slot machine is a javascript game for web
 
 just open index.html in your browser (Google Chrome)
 
-see game online: http://factotum.ir/game/slot-machine/
+see game online: https://factotum.ir/game/slot-machine/
 
 ## about Game
 
