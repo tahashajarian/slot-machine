@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>SLot game</title>
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="style.css?id=adsfasdf" />
+  </head>
+  <body>
+    <div id="gameContainer">
+      <div id="background-blur" class="with-bg"></div>
+      <label class="switch" id="switch-button">
+        <label>FIXED MODE:</label>
+        <input type="checkbox" />
+        <span class="slider round"></span>
+      </label>
+      <div id="slotContainer">
+        <div id="slot">
+          <div class="slot-frame">
+            <div class="slot-frame-reel"></div>
+            <div class="slot-frame-reel"></div>
+            <div class="slot-frame-reel"></div>
+          </div>
+          <div id="reelContainer"></div>
+          <div id="balanceContainer">
+            <div id="balance">
+              <span id="credit" tabindex="1">0</span>
+            </div>
+            <div id="actions">
+              <a class="button active" id="spin-button">
+                <span>SPIN</span>
+              </a>
+            </div>
+          </div>
+          <div id="red-line"></div>
+        </div>
+        <div id="payTable"></div>
+      </div>
+      <div id="modal-container">
+        <div id="modal">
+          <span id="closeModal">&#x2715</span>
+          <div class="symbol-select">
+            <label>*symbol:</label>
+            <select id="select-symbole">
+              <option value="">select</option>
+            </select>
+          </div>
+          <div class="line-select">
+            <label>*line:</label>
+            <select id="select-line">
+              <option value="">select</option>
+            </select>
+          </div>
+          <div>
+            <button id="fixed-button">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="./stuff.js"></script>
+    <script src="./script.js"></script>
+  </body>
+</html>
