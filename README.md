@@ -6,7 +6,7 @@ slot machine is a javascript game for web
 
 just open index.html in your browser (Google Chrome)
 
-see game online: https://factotum.ir/game/slot-machine/
+see game online: <https://factotum.ir/game/slot-machine/>
 
 ## about Game
 
@@ -26,7 +26,7 @@ In case that more than one line has a point in the pay-table the bigger one will
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
-# TODO
+## TODO
 
 Add sound effects
 
