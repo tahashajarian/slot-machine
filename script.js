@@ -3,12 +3,14 @@ const startGame = () => {
   const gameData = {};
   gameData.items = items;
   gameData.reelCount = 3;
-  gameData.spinTime = 3500;
+  gameData.spinTime = 4000;
   gameData.startScore = 100;
   gameData.mode = items.modes.random;
   gameData.dataPayTable = dataPayTable;
   gameData.redLine = document.getElementById("red-line");
-  gameData.payTable = document.getElementById("payTable");
+  const payTableElement = document.getElementById("payTable");
+  gameData.reelContainer = document.getElementById("reelContainer");
+  gameData.payTable = new PayTable(payTableElement, dataPayTable);
   gameData.modal = document.getElementById("modal-container");
   gameData.closeModal = document.getElementById("closeModal");
   gameData.scoreContainer = document.getElementById("credit");
@@ -16,8 +18,7 @@ const startGame = () => {
   gameData.lineSelect = document.getElementById("select-line");
   gameData.switchButton = document.getElementById("switch-button");
   gameData.background = document.getElementById("background-blur");
-  gameData.symbolSelect = document.getElementById("select-symbole");
-  gameData.reelContainer = document.getElementById("reelContainer");
+  gameData.symbolOptions = document.getElementById("select-symbole");
   gameData.spinFixedButton = document.getElementById("fixed-button");
   gameData.reelItmes = [
     items.barX3.name,
@@ -29,6 +30,12 @@ const startGame = () => {
     items.bar.name,
     items.barX2.name,
   ];
+  gameData.slot = new Slot(
+    gameData.reelCount,
+    gameData.reelContainer,
+    gameData.reelItmes,
+    gameData.spinTime
+  );
   const gameManager = new GameManager({ ...gameData });
   gameManager.preparePlayGround();
 };
@@ -41,8 +48,6 @@ class GameManager {
     startScore,
     spinTime,
     items,
-    dataPayTable,
-    reelContainer,
     reelCount,
     reelItmes,
     redLine,
@@ -52,17 +57,16 @@ class GameManager {
     background,
     modal,
     spinFixedButton,
-    symbolSelect,
+    symbolOptions,
     lineSelect,
     closeModal,
+    slot,
   }) {
     this.mode = mode;
     this.score = startScore;
     this.spinTime = spinTime;
     this.payTable = payTable;
     this.items = items;
-    this.dataPayTable = dataPayTable;
-    this.reelContainer = reelContainer;
     this.reelCount = reelCount;
     this.reelItmes = reelItmes;
     this.redLine = redLine;
@@ -72,16 +76,17 @@ class GameManager {
     this.background = background;
     this.modal = modal;
     this.spinFixedButton = spinFixedButton;
-    this.symbolSelect = symbolSelect;
+    this.symbolOptions = symbolOptions;
     this.lineSelect = lineSelect;
     this.closeModal = closeModal;
+    this.slot = slot;
   }
 
   // this method make table and reels
   preparePlayGround() {
-    createPayTable(this.payTable, this.dataPayTable);
-    createReels(this.reelCount, this.reelContainer, this.reelItmes);
-    createSelectes(this.items, this.symbolSelect, this.lineSelect);
+    this.payTable.createPayTable();
+    this.slot.createReels();
+    this.createSelectes(this.items, this.symbolOptions, this.lineSelect);
     this.spinButton.onclick = this.spin;
     this.switchButton.onchange = this.switchMode;
     this.spinFixedButton.onclick = this.fixedSpin;
@@ -104,7 +109,7 @@ class GameManager {
   // by pressing spin button this method will be called
   spin = () => {
     if (this.spining) return;
-    this.removeBlinking(1);
+    this.removeBlinking();
     if (this.mode === this.items.modes.random) {
       const randomResult = this.spinResultRandom();
       this.spinAnimation(randomResult);
@@ -115,31 +120,25 @@ class GameManager {
 
   // in fixed mode spin button called this method
   fixedSpin = () => {
-    const selectedSymbol = this.symbolSelect.value;
+    const selectedSymbol = this.symbolOptions.value;
     const selectedLine = this.lineSelect.value;
     if (selectedSymbol && selectedLine) {
       this.toggleModal(false);
       const index = getIndexOfArray(this.items.availableItems, selectedSymbol);
-      const fixedResult = [
-        {
+      const fixedResult = [];
+      for (let i = 0; i < this.reelCount; i++) {
+        fixedResult[i] = {
           symbol: this.items.availableItems[index],
           line: selectedLine,
-        },
-        {
-          symbol: this.items.availableItems[index],
-          line: selectedLine,
-        },
-        {
-          symbol: this.items.availableItems[index],
-          line: selectedLine,
-        },
-      ];
+        };
+      }
+
       this.spinAnimation(fixedResult);
-      this.symbolSelect.style.color = "black";
+      this.symbolOptions.style.color = "black";
       this.lineSelect.style.color = "black";
     } else {
       if (!selectedSymbol) {
-        this.symbolSelect.style.color = "red";
+        this.symbolOptions.style.color = "red";
       }
       if (!selectedLine) {
         this.lineSelect.style.color = "red";
@@ -169,19 +168,7 @@ class GameManager {
   // this method get the result first and start animate reels and stop on the result
   spinAnimation(result) {
     this.toggleSpining(true);
-    if (!this.reels) {
-      this.reels = this.reelContainer.getElementsByClassName("reel");
-    }
-    for (let i = 0; i < this.reels.length; i++) {
-      const reel = this.reels[i];
-      const reelScrollAble = reel.getElementsByClassName("reel-scroll-able")[0];
-      reelScrollAble.classList.add("spin-animate");
-      setTimeout(() => {
-        reelScrollAble.classList.remove("spin-animate");
-        reelScrollAble.classList.add("bounce-animate");
-        reelScrollAble.style.top = result[i].symbol[result[i].line] + "px";
-      }, this.spinTime - (this.reels.length - i) * 500);
-    }
+    this.slot.spin(result);
     setTimeout(() => {
       const scoreSpin = this.calculateScore(this.get3Lines(result));
       this.updateScore(scoreSpin);
@@ -278,22 +265,15 @@ class GameManager {
 
   // this mtheod get the row table and the line of reels and blink the table row and
   // and red line on the line
-  blinkTableAndSlot(tableRow, reelRow) {
-    const theRow = this.payTable.getElementsByClassName("row-pay-table")[
-      tableRow
-    ];
-    theRow.classList.add("blinking-row");
+  blinkTableAndSlot(rowId, reelRow) {
+    this.payTable.blink(rowId);
     this.redLine.className = this.items.availablePosition[reelRow];
   }
 
   // this mthdo remove red line and blinked row of table
   removeBlinking = () => {
     this.redLine.className = "";
-    const allRows = this.payTable.getElementsByClassName("row-pay-table");
-    for (let i = 0; i < allRows.length; i++) {
-      const element = allRows[i];
-      element.classList.remove("blinking-row");
-    }
+    this.payTable.removeBlinking();
   };
 
   // this method get the score and update score by add property to curren score
@@ -340,7 +320,140 @@ class GameManager {
     }
     return lines;
   }
+
+  // this functon create select opetion in modal (in fixed mode to select symbol and line)
+  createSelectes(items, symbolOptions, lineSelect) {
+    const symbols = items.availableItems;
+    const lines = items.availablePosition;
+
+    symbols.forEach((sym) => {
+      const option = document.createElement("option");
+      option.innerHTML = sym.name;
+      option.value = sym.name;
+      symbolOptions.appendChild(option);
+    });
+    lines.forEach((line) => {
+      const option = document.createElement("option");
+      option.innerHTML = line;
+      option.value = line;
+      lineSelect.appendChild(option);
+    });
+  }
 }
+
+// this class create pay-table
+class PayTable {
+  constructor(tableElement, data) {
+    this.tableElement = tableElement;
+    this.data = data;
+  }
+
+  createPayTable() {
+    this.data.forEach((row) => {
+      const divRow = document.createElement("div");
+      divRow.classList.add("row-pay-table");
+      const divScore = document.createElement("div");
+      divScore.innerHTML = row.score;
+      divScore.classList.add("row-pay-table-score");
+      const divPosition = document.createElement("div");
+      divPosition.innerHTML = row.position;
+      divPosition.classList.add("row-pay-table-position");
+      const divItems = document.createElement("div");
+      divItems.classList.add("row-pay-table-items");
+      row.items.forEach((item) => {
+        const spanItem = document.createElement("span");
+        spanItem.classList.add("card");
+        spanItem.classList.add(item);
+        divItems.appendChild(spanItem);
+      });
+      divRow.appendChild(divItems);
+      divRow.appendChild(divPosition);
+      divRow.appendChild(divScore);
+      this.tableElement.appendChild(divRow);
+    });
+  }
+
+  removeBlinking() {
+    const allRows = this.tableElement.getElementsByClassName("row-pay-table");
+    for (let i = 0; i < allRows.length; i++) {
+      const element = allRows[i];
+      element.classList.remove("blinking-row");
+    }
+  }
+
+  blink(rowId) {
+    const theRow = this.tableElement.getElementsByClassName("row-pay-table")[
+      rowId
+    ];
+    theRow.classList.add("blinking-row");
+  }
+}
+
+// this class crete reels in solot machine
+class Slot {
+  constructor(reelCount, reelContainer, reelItmes, spinTime) {
+    this.reelCount = reelCount;
+    this.reelContainer = reelContainer;
+    this.reelItmes = reelItmes;
+    this.spinTime = spinTime;
+  }
+
+  createReels() {
+    for (let i = 0; i < this.reelCount; i++) {
+      const reel = document.createElement("div");
+      reel.classList.add("reel");
+      const reelScrollAble = document.createElement("div");
+      reelScrollAble.className = "reel-scroll-able";
+      this.reelItmes.forEach((item) => {
+        const card = document.createElement("span");
+        card.classList.add("card");
+        card.classList.add(item);
+        reelScrollAble.appendChild(card);
+      });
+      reel.appendChild(reelScrollAble);
+      const reelShadow = document.createElement("div");
+      reelShadow.classList.add("reel-shadow");
+      reelShadow.innerHTML = "<span class='reel-shadow-light'></span>";
+      const reelShadowContainer = document.createElement("div");
+      reelShadowContainer.classList.add("reel-shadow-container");
+      reelShadowContainer.appendChild(reel);
+      reelShadowContainer.appendChild(reelShadow);
+      this.reelContainer.appendChild(reelShadowContainer);
+    }
+  }
+
+  spin(result) {
+    if (!this.reels) {
+      this.reels = this.reelContainer.getElementsByClassName("reel");
+    }
+    for (let i = 0; i < this.reels.length; i++) {
+      const reel = this.reels[i];
+      const reelScrollAble = reel.getElementsByClassName("reel-scroll-able")[0];
+      reelScrollAble.classList.add("spin-animate");
+      setTimeout(() => {
+        reelScrollAble.classList.remove("spin-animate");
+        reelScrollAble.classList.add("bounce-animate");
+        reelScrollAble.style.top = result[i].symbol[result[i].line] + "px";
+      }, this.spinTime - (this.reels.length - i) * 500);
+    }
+  }
+}
+
+// this function is effect to update socre and get
+// the object is elemnt that gonna change and the end that is final number and the time for duration update the number
+const animateValue = (obj, end, duration) => {
+  let startTimestamp = null;
+  const start = Number(obj.innerText);
+  const step = (timestamp) => {
+    if (!startTimestamp) startTimestamp = timestamp;
+    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+    obj.innerHTML = Math.floor(progress * (end - start) + start);
+    if (progress < 1) {
+      window.requestAnimationFrame(step);
+    }
+  };
+  window.requestAnimationFrame(step);
+};
 
 // this is all items we need in this game
 const items = {
@@ -477,92 +590,6 @@ const getIndexOfArray = (array, name) => {
     if (element.name === name) return i;
   }
   return 0;
-};
-
-// this function is effect to update socre and get
-// the object is elemnt that gonna change and the end that is final number and the time for duration update the number
-const animateValue = (obj, end, duration) => {
-  let startTimestamp = null;
-  const start = Number(obj.innerText);
-  const step = (timestamp) => {
-    if (!startTimestamp) startTimestamp = timestamp;
-    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-    obj.innerHTML = Math.floor(progress * (end - start) + start);
-    if (progress < 1) {
-      window.requestAnimationFrame(step);
-    }
-  };
-  window.requestAnimationFrame(step);
-};
-
-// this function create pay-table
-const createPayTable = (table, dataTable) => {
-  dataTable.forEach((row) => {
-    const divRow = document.createElement("div");
-    divRow.classList.add("row-pay-table");
-    const divScore = document.createElement("div");
-    divScore.innerHTML = row.score;
-    divScore.classList.add("row-pay-table-score");
-    const divPosition = document.createElement("div");
-    divPosition.innerHTML = row.position;
-    divPosition.classList.add("row-pay-table-position");
-    const divItems = document.createElement("div");
-    divItems.classList.add("row-pay-table-items");
-    row.items.forEach((item) => {
-      const spanItem = document.createElement("span");
-      spanItem.classList.add("card");
-      spanItem.classList.add(item);
-      divItems.appendChild(spanItem);
-    });
-    divRow.appendChild(divItems);
-    divRow.appendChild(divPosition);
-    divRow.appendChild(divScore);
-    table.appendChild(divRow);
-  });
-};
-
-// this functon crete reels in solot machine
-const createReels = (reelCount, reelContainer, reelItmes) => {
-  for (let i = 0; i < reelCount; i++) {
-    const reel = document.createElement("div");
-    reel.classList.add("reel");
-    const reelScrollAble = document.createElement("div");
-    reelScrollAble.className = "reel-scroll-able";
-    reelItmes.forEach((item) => {
-      const card = document.createElement("span");
-      card.classList.add("card");
-      card.classList.add(item);
-      reelScrollAble.appendChild(card);
-    });
-    reel.appendChild(reelScrollAble);
-    const reelShadow = document.createElement("div");
-    reelShadow.classList.add("reel-shadow");
-    reelShadow.innerHTML = "<span class='reel-shadow-light'></span>";
-    const reelShadowContainer = document.createElement("div");
-    reelShadowContainer.classList.add("reel-shadow-container");
-    reelShadowContainer.appendChild(reel);
-    reelShadowContainer.appendChild(reelShadow);
-    reelContainer.appendChild(reelShadowContainer);
-  }
-};
-
-// this functon create select opetion in modal (in fixed mode to select symbol and line)
-const createSelectes = (items, symbolSelect, lineSelect) => {
-  const symbols = items.availableItems;
-  const lines = items.availablePosition;
-
-  symbols.forEach((sym) => {
-    const option = document.createElement("option");
-    option.innerHTML = sym.name;
-    option.value = sym.name;
-    symbolSelect.appendChild(option);
-  });
-  lines.forEach((line) => {
-    const option = document.createElement("option");
-    option.innerHTML = line;
-    option.value = line;
-    lineSelect.appendChild(option);
-  });
 };
 
 // start game call after all loaded
