@@ -523,15 +523,15 @@ html {
   top: -11px;
 }
 
-#red-line.topPos {
+#red-line.top {
   top: 50px;
   display: block;
 }
-#red-line.centerPos {
+#red-line.center {
   top: 135px;
   display: block;
 }
-#red-line.bottomPos {
+#red-line.bottom {
   top: 224px;
   display: block;
 }
