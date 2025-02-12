@@ -1,3 +1,5 @@
+![image](https://github.com/mngz47/tahas-slot-machine/assets/15697629/23fff5ef-6602-4101-b012-7cbea2203821)
+
 # slot machine
 
 slot machine is a javascript game for web
