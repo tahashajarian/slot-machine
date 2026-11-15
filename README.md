@@ -1,36 +1,47 @@
-# slot machine
+# Slot Machine
 
-slot machine is a javascript game for web
+A classic three-reel slot machine written in plain JavaScript and CSS, with no framework and no build step.
 
-## launch
+**[Play it live →](https://taha-shajarian.ir/projects/slot-machin)**
 
-just open index.html in your browser (Google Chrome)
+![Slot Machine: a vintage cabinet with three reels showing a winning line of cherries, next to the paytable](docs/screenshot.jpg)
 
-see game online: <https://factotum.ir/game/slot-machine/>
+## Features
 
-## about Game
+- **Three animated reels** that stop one after another with a small bounce. Wins light the payline, highlight the paytable row and count the credit up.
+- **Paytable with nine combinations.** Some pay only on a specific line (three cherries on the bottom line pays 4000). Others are mixed groups such as "any cherry or 7" and "any bar". When several lines win, only the highest one pays.
+- **Fixed mode** (switch, top left): choose a symbol and a line, and every reel stops there. It's useful for checking each paytable rule. In fixed mode you can also double-click the credit to set it (1 to 5000).
+- **Sound effects** synthesized with the Web Audio API (reel ticks, stop thunks, a win chime), so there are no audio files. The mute setting is remembered.
+- **Responsive**: the cabinet and paytable sit side by side on desktop and stack on phones.
+- Keyboard controls and an out-of-credit refill.
 
-the game has two mode, random and fixed
-you can switch between them by switch button on the top left;
-in random mode the reel spin and stop on random symbols then machine calculate your score.
-balance on start is 200
-in fixed mode you have to select symbol and the line then press on ok and slot machin start spinning and simulate like random mode.
+## Controls
 
-any spin cost 1 coin;
+| Action | Input |
+| --- | --- |
+| Spin | Click **Spin**, pull the lever, or press <kbd>Space</kbd> / <kbd>Enter</kbd> |
+| Choose the outcome | Turn on **Fixed mode**, then spin |
+| Edit credit (fixed mode) | Double-click the credit display |
+| Close the dialog | <kbd>Esc</kbd> |
 
-In fixed mode by dobuble click on balcne you can edit it. (1...5000)
+Each spin costs 1 credit, and you start with 200.
 
-In case that more than one line has a point in the pay-table the bigger one will be count.
+## How it works
 
-## Contributing
+- `constants.js` holds the symbols, the pixel offset for each symbol on each line, and the paytable.
+- `script.js` has three small classes:
+  - `GameManager`: game state, modes, scoring and UI feedback.
+  - `Slot`: builds the reels and runs the spin and stop animation.
+  - `PayTable`: renders the paytable and highlights the winning row.
+- Scoring works out the three visible lines from where each reel stops, then checks the paytable from the top down, so the first (highest) match pays.
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+## Run locally
 
-## TODO
+Open `index.html` in a browser, or serve the folder:
 
-Add sound effects
-
-Make it responsive
+```sh
+npx serve .
+```
 
 ## License
 

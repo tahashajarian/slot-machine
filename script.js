@@ -3,8 +3,8 @@ const startGame = () => {
   const gameData = {};
   gameData.items = items;
   gameData.reelCount = 3;
-  gameData.spinTime = 4000;
-  gameData.startScore = 100;
+  gameData.spinTime = 3000;
+  gameData.startScore = 200;
   gameData.mode = items.modes.random;
   gameData.dataPayTable = dataPayTable;
   gameData.redLine = document.getElementById("red-line");
@@ -20,6 +20,17 @@ const startGame = () => {
   gameData.background = document.getElementById("background-blur");
   gameData.symbolOptions = document.getElementById("select-symbole");
   gameData.spinFixedButton = document.getElementById("fixed-button");
+  gameData.ui = {
+    cabinet: document.querySelector(".cabinet"),
+    bulbs: document.querySelector(".bulbs"),
+    winBanner: document.getElementById("win-banner"),
+    balance: document.getElementById("balance"),
+    balanceHint: document.getElementById("balance-hint"),
+    refillButton: document.getElementById("refill-button"),
+    soundButton: document.getElementById("sound-button"),
+    lever: document.getElementById("lever"),
+  };
+  gameData.sound = new SoundFx();
   gameData.reelItmes = [
     items.barX3.name,
     items.bar.name,
@@ -34,7 +45,8 @@ const startGame = () => {
     gameData.reelCount,
     gameData.reelContainer,
     gameData.reelItmes,
-    gameData.spinTime
+    gameData.spinTime,
+    (last) => gameData.sound.stop(last)
   );
   const gameManager = new GameManager({ ...gameData });
   gameManager.preparePlayGround();
@@ -61,6 +73,8 @@ class GameManager {
     lineSelect,
     closeModal,
     slot,
+    ui,
+    sound,
   }) {
     this.mode = mode;
     this.score = startScore;
@@ -80,6 +94,11 @@ class GameManager {
     this.lineSelect = lineSelect;
     this.closeModal = closeModal;
     this.slot = slot;
+    this.ui = ui;
+    this.sound = sound;
+    this.startScore = startScore;
+    this.selectedSymbol = "";
+    this.selectedLine = "";
   }
 
   // this method make table and reels
@@ -87,12 +106,83 @@ class GameManager {
     this.payTable.createPayTable();
     this.slot.createReels();
     this.createSelectes(this.items, this.symbolOptions, this.lineSelect);
+    this.createBulbs(28);
     this.spinButton.onclick = this.spin;
+    this.ui.lever.onclick = this.spin;
     this.switchButton.onchange = this.switchMode;
     this.spinFixedButton.onclick = this.fixedSpin;
     this.closeModal.onclick = () => this.toggleModal(false);
+    this.modal.onclick = (e) => {
+      if (e.target === this.modal) this.toggleModal(false);
+    };
     this.scoreContainer.ondblclick = this.changeScoreByHand;
-    this.updateScore(this.score);
+    this.scoreContainer.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.scoreContainer.blur();
+      }
+    };
+    this.ui.refillButton.onclick = this.refill;
+    this.ui.soundButton.onclick = () => {
+      const muted = this.sound.toggle();
+      this.ui.soundButton.classList.toggle("muted", muted);
+      this.ui.soundButton.setAttribute("aria-label", muted ? "Unmute sound" : "Mute sound");
+    };
+    document.addEventListener("keydown", this.onKeyDown);
+    this.updateScore(this.startScore, true);
+  }
+
+  // Space / Enter spins, Escape closes the dialog
+  onKeyDown = (e) => {
+    if (this.scoreContainer.isContentEditable) return;
+    const modalOpen = this.modal.classList.contains("open");
+    if (e.key === "Escape" && modalOpen) {
+      this.toggleModal(false);
+      return;
+    }
+    if (e.code !== "Space" && e.key !== "Enter") return;
+    // let a focused button or checkbox handle its own key
+    if (e.target.closest && e.target.closest("button, input")) return;
+    e.preventDefault();
+    if (modalOpen) this.fixedSpin();
+    else this.spin();
+  };
+
+  // marquee light bulbs along the top of the cabinet
+  createBulbs(count) {
+    for (let i = 0; i < count; i++) {
+      const bulb = document.createElement("i");
+      bulb.style.animationDelay = `${(i % 7) * -0.23}s`;
+      this.ui.bulbs.appendChild(bulb);
+    }
+  }
+
+  setHint(text, warn = false) {
+    this.ui.balanceHint.textContent = text;
+    this.ui.balanceHint.classList.toggle("warn", warn);
+  }
+
+  defaultHint() {
+    this.setHint(
+      this.mode === this.items.modes.fixed
+        ? "double-click to edit"
+        : "1 credit per spin"
+    );
+  }
+
+  refill = () => {
+    this.ui.refillButton.hidden = true;
+    this.updateScore(this.startScore, true);
+    this.defaultHint();
+  };
+
+  flashBalance(className) {
+    const el = this.ui.balance;
+    el.classList.remove("success", "fail");
+    void el.offsetWidth;
+    el.classList.add(className);
+    clearTimeout(this.balanceTimer);
+    this.balanceTimer = setTimeout(() => el.classList.remove(className), 1600);
   }
 
   // this method swich bewteen tow modes (random and fixed)
@@ -100,15 +190,24 @@ class GameManager {
     if (this.mode === this.items.modes.random) {
       this.mode = this.items.modes.fixed;
       this.background.classList = "";
+      this.ui.refillButton.hidden = true;
     } else {
       this.mode = this.items.modes.random;
       this.background.classList = "with-bg";
     }
+    this.defaultHint();
   };
 
   // by pressing spin button this method will be called
   spin = () => {
     if (this.spining) return;
+    this.sound.unlock();
+    if (this.score < 1) {
+      this.flashBalance("fail");
+      this.setHint("out of credit", true);
+      if (this.mode === this.items.modes.random) this.ui.refillButton.hidden = false;
+      return;
+    }
     this.removeBlinking();
     if (this.mode === this.items.modes.random) {
       const randomResult = this.spinResultRandom();
@@ -120,8 +219,8 @@ class GameManager {
 
   // in fixed mode spin button called this method
   fixedSpin = () => {
-    const selectedSymbol = this.symbolOptions.value;
-    const selectedLine = this.lineSelect.value;
+    const selectedSymbol = this.selectedSymbol;
+    const selectedLine = this.selectedLine;
     if (selectedSymbol && selectedLine) {
       this.toggleModal(false);
       const index = getIndexOfArray(this.items.availableItems, selectedSymbol);
@@ -134,25 +233,22 @@ class GameManager {
       }
 
       this.spinAnimation(fixedResult);
-      this.symbolOptions.style.color = "black";
-      this.lineSelect.style.color = "black";
     } else {
-      if (!selectedSymbol) {
-        this.symbolOptions.style.color = "red";
-      }
-      if (!selectedLine) {
-        this.lineSelect.style.color = "red";
-      }
+      [
+        [selectedSymbol, this.symbolOptions],
+        [selectedLine, this.lineSelect],
+      ].forEach(([value, row]) => {
+        if (value) return;
+        row.classList.remove("invalid");
+        void row.offsetWidth;
+        row.classList.add("invalid");
+      });
     }
   };
 
   // to hide and show modal (select line and symbol)
   toggleModal(status) {
-    if (status) {
-      this.modal.style.visibility = "visible";
-    } else {
-      this.modal.style.visibility = "hidden";
-    }
+    this.modal.classList.toggle("open", status);
   }
 
   // to active and deactive spin button
@@ -162,19 +258,52 @@ class GameManager {
     } else {
       this.spinButton.classList.add("active");
     }
+    this.spinButton.setAttribute("aria-disabled", String(status));
+    this.ui.cabinet.classList.toggle("spinning", status);
     this.spining = status;
   }
 
   // this method get the result first and start animate reels and stop on the result
   spinAnimation(result) {
     this.toggleSpining(true);
+    this.pullLever();
+    this.sound.startReels();
     this.slot.spin(result);
+    this.setHint("good luck");
     setTimeout(() => {
       const scoreSpin = this.calculateScore(this.get3Lines(result));
       this.updateScore(scoreSpin);
       this.toggleSpining(false);
+      if (scoreSpin > 0) this.celebrate(scoreSpin);
+      else this.defaultHint();
     }, this.spinTime);
     this.updateScore(-1);
+  }
+
+  pullLever() {
+    const lever = this.ui.lever;
+    lever.classList.add("pulled");
+    this.spinButton.classList.add("pressed");
+    setTimeout(() => {
+      lever.classList.remove("pulled");
+      this.spinButton.classList.remove("pressed");
+    }, 260);
+  }
+
+  // win banner, flashing bulbs and a chime
+  celebrate(amount) {
+    const banner = this.ui.winBanner;
+    banner.textContent = `+${amount}`;
+    banner.classList.remove("show");
+    void banner.offsetWidth;
+    banner.classList.add("show");
+    this.flashBalance("success");
+    this.setHint(amount >= 150 ? "big win!" : "winner");
+    this.sound.win(amount);
+    const cabinet = this.ui.cabinet;
+    cabinet.classList.add("winning");
+    clearTimeout(this.winTimer);
+    this.winTimer = setTimeout(() => cabinet.classList.remove("winning"), 2000);
   }
 
   // this method return a random result for 3 reel (used in random mode)
@@ -246,21 +375,25 @@ class GameManager {
       this.scoreContainer.onblur = this.onBlurScoreContainer;
       this.scoreContainer.contentEditable = "true";
       this.scoreContainer.classList.add("editable-score");
+      this.scoreContainer.focus();
+      document.getSelection().selectAllChildren(this.scoreContainer);
     }
   };
 
   // when score changed to editable mode on blur this method called
   onBlurScoreContainer = () => {
-    console.log(this.scoreContainer.innerText);
     this.scoreContainer.removeAttribute("contentEditable");
     this.scoreContainer.removeAttribute("onblur");
     const enterScore = this.scoreContainer.innerText;
     if (Number(enterScore) >= 1 && Number(enterScore) <= 5000) {
       this.updateScore(parseInt(this.scoreContainer.innerText), true);
-      this.scoreContainer.classList.remove("editable-score");
+      this.defaultHint();
     } else {
-      alert("the input must be in range (1...5000)");
+      this.scoreContainer.innerText = this.score;
+      this.flashBalance("fail");
+      this.setHint("enter 1 to 5000", true);
     }
+    this.scoreContainer.classList.remove("editable-score");
   };
 
   // this mtheod get the row table and the line of reels and blink the table row and
@@ -326,18 +459,27 @@ class GameManager {
     const symbols = items.availableItems;
     const lines = items.availablePosition;
 
-    symbols.forEach((sym) => {
-      const option = document.createElement("option");
-      option.innerHTML = sym.name;
-      option.value = sym.name;
-      symbolOptions.appendChild(option);
-    });
-    lines.forEach((line) => {
-      const option = document.createElement("option");
-      option.innerHTML = line;
-      option.value = line;
-      lineSelect.appendChild(option);
-    });
+    const makeTiles = (row, values, key, withIcon) => {
+      values.forEach((value) => {
+        const tile = document.createElement("button");
+        tile.type = "button";
+        if (withIcon) {
+          tile.classList.add("card", value);
+          tile.setAttribute("aria-label", value);
+          tile.title = value;
+        } else {
+          tile.textContent = value;
+        }
+        tile.onclick = () => {
+          this[key] = value;
+          [...row.children].forEach((t) => t.classList.toggle("selected", t === tile));
+        };
+        row.appendChild(tile);
+      });
+    };
+    makeTiles(symbolOptions, symbols.map((sym) => sym.name), "selectedSymbol", true);
+    lineSelect.classList.add("lines");
+    makeTiles(lineSelect, lines, "selectedLine", false);
   }
 }
 
@@ -391,11 +533,12 @@ class PayTable {
 
 // this class crete reels in solot machine
 class Slot {
-  constructor(reelCount, reelContainer, reelItmes, spinTime) {
+  constructor(reelCount, reelContainer, reelItmes, spinTime, onReelStop) {
     this.reelCount = reelCount;
     this.reelContainer = reelContainer;
     this.reelItmes = reelItmes;
     this.spinTime = spinTime;
+    this.onReelStop = onReelStop;
   }
 
   createReels() {
@@ -410,6 +553,9 @@ class Slot {
         card.classList.add(item);
         reelScrollAble.appendChild(card);
       });
+      // start each reel on a random stop instead of all reels on the same row
+      const start = randomItemFromAraay(items.availableItems);
+      reelScrollAble.style.top = start[randomItemFromAraay(items.availablePosition)] + "px";
       reel.appendChild(reelScrollAble);
       const reelShadow = document.createElement("div");
       reelShadow.classList.add("reel-shadow");
@@ -429,13 +575,87 @@ class Slot {
     for (let i = 0; i < this.reels.length; i++) {
       const reel = this.reels[i];
       const reelScrollAble = reel.getElementsByClassName("reel-scroll-able")[0];
+      reelScrollAble.classList.remove("bounce-animate");
       reelScrollAble.classList.add("spin-animate");
       setTimeout(() => {
         reelScrollAble.classList.remove("spin-animate");
         reelScrollAble.classList.add("bounce-animate");
         reelScrollAble.style.top = result[i].symbol[result[i].line] + "px";
+        if (this.onReelStop) this.onReelStop(i === this.reels.length - 1);
       }, this.spinTime - (this.reels.length - i) * 500);
     }
+  }
+}
+
+// tiny synthesized sound effects (no audio files): reel ticks, stop thunks, win chime
+class SoundFx {
+  constructor() {
+    this.muted = false;
+    try {
+      this.muted = localStorage.getItem("slot-muted") === "1";
+    } catch (e) {}
+    if (this.muted) {
+      document.getElementById("sound-button").classList.add("muted");
+    }
+  }
+
+  unlock() {
+    if (this.ctx || this.muted) return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    this.ctx = new Ctx();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.35;
+    this.master.connect(this.ctx.destination);
+  }
+
+  toggle() {
+    this.muted = !this.muted;
+    try {
+      localStorage.setItem("slot-muted", this.muted ? "1" : "0");
+    } catch (e) {}
+    if (this.muted) this.stopTicks();
+    else this.unlock();
+    return this.muted;
+  }
+
+  tone(freq, start, duration, type = "sine", volume = 0.5) {
+    if (!this.ctx || this.muted) return;
+    const t = this.ctx.currentTime + start;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    osc.connect(gain).connect(this.master);
+    osc.start(t);
+    osc.stop(t + duration + 0.02);
+  }
+
+  startReels() {
+    this.stopTicks();
+    this.tickTimer = setInterval(() => {
+      this.tone(1400 + Math.random() * 300, 0, 0.03, "square", 0.08);
+    }, 70);
+  }
+
+  stopTicks() {
+    clearInterval(this.tickTimer);
+  }
+
+  stop(last) {
+    this.tone(140, 0, 0.18, "triangle", 0.7);
+    this.tone(90, 0, 0.12, "sine", 0.5);
+    if (last) this.stopTicks();
+  }
+
+  win(amount) {
+    const notes = amount >= 150 ? [523, 659, 784, 1047, 1319] : [659, 784, 1047];
+    notes.forEach((f, i) => {
+      this.tone(f, i * 0.09, 0.35, "triangle", 0.35);
+      this.tone(f * 2, i * 0.09, 0.2, "sine", 0.08);
+    });
   }
 }
 

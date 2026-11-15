@@ -2,64 +2,103 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>SLot game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#120d10" />
+    <meta name="description" content="A classic three-reel slot machine built with plain JavaScript and CSS: animated reels, a live paytable and a fixed mode for picking the outcome." />
+    <title>Slot Machine</title>
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
-    <link rel="stylesheet" href="style.css?id=adsfasdf" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Limelight&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css?v=2" />
   </head>
   <body>
     <div id="gameContainer">
       <div id="background-blur" class="with-bg"></div>
-      <label class="switch" id="switch-button">
-        <label>FIXED MODE:</label>
-        <input type="checkbox" />
-        <span class="slider round"></span>
-      </label>
-      <div id="slotContainer">
-        <div id="slot">
-          <div class="slot-frame">
-            <div class="slot-frame-reel"></div>
-            <div class="slot-frame-reel"></div>
-            <div class="slot-frame-reel"></div>
+
+      <header class="topbar">
+        <label class="switch" id="switch-button" title="Fixed mode: pick the symbol and line the reels stop on">
+          <input type="checkbox" />
+          <span class="slider"></span>
+          <span class="switch-text">
+            <strong>Fixed mode</strong>
+            <small>pick the outcome</small>
+          </span>
+        </label>
+        <button class="icon-button" id="sound-button" type="button" aria-label="Mute sound" title="Sound">
+          <svg class="icon-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" /><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          <svg class="icon-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" /><path d="M17 9l5 6M22 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        </button>
+      </header>
+
+      <main id="slotContainer">
+        <div class="cabinet">
+          <div class="marquee">
+            <div class="bulbs" aria-hidden="true"></div>
+            <h1>Slot Machine</h1>
+            <p class="marquee-sub">three reels &middot; nine ways to win</p>
           </div>
-          <div id="reelContainer"></div>
-          <div id="balanceContainer">
-            <div id="balance">
-              <span id="credit" tabindex="1">0</span>
+
+          <div id="slot">
+            <div class="reel-window">
+              <div id="reelContainer"></div>
+              <div class="glass" aria-hidden="true"></div>
+              <div class="paylines" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
+              <div id="red-line" aria-hidden="true"></div>
+              <div id="win-banner" aria-live="polite"></div>
             </div>
-            <div id="actions">
-              <a class="button active" id="spin-button">
-                <span>SPIN</span>
-              </a>
+
+            <div id="balanceContainer">
+              <div id="balance">
+                <span class="balance-label">Credit</span>
+                <span id="credit" tabindex="1">0</span>
+                <span class="balance-hint" id="balance-hint">1 credit per spin</span>
+              </div>
+              <div id="actions">
+                <button class="button active" id="spin-button" type="button">
+                  <span>Spin</span>
+                </button>
+                <button id="refill-button" type="button" hidden>Refill 200</button>
+              </div>
             </div>
           </div>
-          <div id="red-line"></div>
+
+          <button class="lever" id="lever" type="button" aria-label="Pull the lever to spin">
+            <span class="lever-arm"><span class="lever-knob"></span></span>
+            <span class="lever-base"></span>
+          </button>
         </div>
-        <div id="payTable"></div>
-      </div>
+
+        <aside class="paytable-card">
+          <h2>Paytable</h2>
+          <div id="payTable"></div>
+          <p class="paytable-note">Only the highest win on the reels pays. Mixed rows pay when every symbol comes from the group shown.</p>
+        </aside>
+      </main>
+
+      <p class="keys-hint">Space or Enter to spin</p>
+
       <div id="modal-container">
-        <div id="modal">
-          <span id="closeModal">&#x2715</span>
+        <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+          <button id="closeModal" type="button" aria-label="Close">&#x2715;</button>
+          <h3 id="modal-title">Choose the result</h3>
+          <p class="modal-sub">All three reels stop on this symbol, on this line.</p>
           <div class="symbol-select">
-            <label>*symbol:</label>
-            <select id="select-symbole">
-              <option value="">select</option>
-            </select>
+            <label>Symbol</label>
+            <div class="tile-row" id="select-symbole"></div>
           </div>
           <div class="line-select">
-            <label>*line:</label>
-            <select id="select-line">
-              <option value="">select</option>
-            </select>
+            <label>Line</label>
+            <div class="tile-row" id="select-line"></div>
           </div>
-          <div>
-            <button id="fixed-button">OK</button>
-          </div>
+          <button id="fixed-button" type="button">Spin</button>
         </div>
       </div>
     </div>
-    <!--  -->
+
     <script src="./constants.js"></script>
-    <script src="./script.js"></script>
+    <script src="./script.js?v=2"></script>
   </body>
 </html>
